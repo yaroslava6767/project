@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from contextlib import contextmanager
 from functools import wraps
 from urllib.parse import unquote, urlparse
@@ -362,6 +363,64 @@ def extract_json_value(text):
             lines = lines[:-1]
         clean_text = "\n".join(lines).strip()
 
+    if clean_text.lower().startswith("json"):
+        clean_text = clean_text[4:].strip()
+
+    if clean_text:
+        try:
+            return json.loads(clean_text)
+        except json.JSONDecodeError:
+            pass
+
+        for delimiter in ('{"', "[", "{\n"):
+            start = clean_text.find(delimiter)
+            if start != -1:
+                try:
+                    return json.loads(clean_text[start:])
+                except json.JSONDecodeError:
+                    pass
+
+    brace_depth = 0
+    in_string = False
+    escape = False
+    json_candidates = []
+    candidate_start = -1
+    for i, ch in enumerate(clean_text):
+        if escape:
+            escape = False
+            continue
+        if ch == "\\" and in_string:
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch in "[{":
+            if brace_depth == 0:
+                candidate_start = i
+            brace_depth += 1
+        elif ch in "]}":
+            brace_depth -= 1
+            if brace_depth == 0 and candidate_start != -1:
+                json_candidates.append(clean_text[candidate_start : i + 1])
+                candidate_start = -1
+
+    if brace_depth == 0 and not json_candidates:
+        obj_match = re.search(r"\{(?:[^{}]|(?:\{[^{}]*\}))*\}", clean_text, re.DOTALL)
+        if obj_match:
+            json_candidates.append(obj_match.group())
+        arr_match = re.search(r"\[(?:[^\[\]]|(?:\[[^\[\]]*\]))*\]", clean_text, re.DOTALL)
+        if arr_match:
+            json_candidates.append(arr_match.group())
+
+    for candidate in json_candidates:
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+
     decoder = json.JSONDecoder()
     for index, char in enumerate(clean_text):
         if char not in "[{":
@@ -372,7 +431,10 @@ def extract_json_value(text):
         except json.JSONDecodeError:
             continue
 
-    raise ValueError("ИИ вернул ответ без JSON-данных.")
+    snippet = text[:200] if text else "(пустой ответ)"
+    raise ValueError(
+        f"ИИ вернул ответ без JSON-данных. Начало ответа: {snippet!r}"
+    )
 
 
 def normalize_cards_payload(data):
@@ -524,6 +586,7 @@ def generate_cards_with_deepseek(user_id, topic, english_level, cards_count):
                 "response_format": {"type": "json_object"},
             },
             timeout=45,
+            proxies={"http": None, "https": None},
         )
         response_text = response.text
         response.raise_for_status()
