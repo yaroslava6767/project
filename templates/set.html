@@ -1,0 +1,487 @@
+{% extends "base.html" %}
+
+{% block title %}{{ card_set.topic }} | English Cards{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .study-shell {
+      display: grid;
+      gap: 18px;
+      justify-items: center;
+    }
+
+    .study-header {
+      width: min(680px, 100%);
+    }
+
+    .study-meta {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .deck {
+      height: min(68vh, 520px);
+      min-height: 360px;
+      position: relative;
+      width: min(420px, 100%);
+    }
+
+    .swipe-card {
+      background: transparent;
+      border: 0;
+      cursor: grab;
+      height: 100%;
+      left: 0;
+      padding: 0;
+      perspective: 1200px;
+      position: absolute;
+      top: 0;
+      touch-action: none;
+      transform-origin: center bottom;
+      user-select: none;
+      width: 100%;
+      will-change: transform;
+    }
+
+    .swipe-card:active {
+      cursor: grabbing;
+    }
+
+    .swipe-card.next {
+      opacity: 0.55;
+      pointer-events: none;
+      transform: translateY(14px) scale(0.96);
+    }
+
+    .swipe-card.hidden {
+      display: none;
+    }
+
+    .flip-inner {
+      border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(31, 41, 55, 0.18);
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 240ms ease;
+      width: 100%;
+    }
+
+    .swipe-card.flipped .flip-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-face {
+      align-items: center;
+      backface-visibility: hidden;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      justify-content: center;
+      left: 0;
+      overflow-wrap: anywhere;
+      padding: 32px;
+      position: absolute;
+      text-align: center;
+      top: 0;
+      width: 100%;
+    }
+
+    .card-front {
+      gap: 12px;
+    }
+
+    .card-back {
+      transform: rotateY(180deg);
+    }
+
+    .card-word {
+      font-size: 42px;
+      font-weight: 700;
+      line-height: 1.15;
+    }
+
+    .card-translation {
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 18px;
+    }
+
+    .card-example {
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    .card-example[hidden] {
+      display: none;
+    }
+
+    .example-slot {
+      align-items: flex-start;
+      display: flex;
+      min-height: 86px;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .example-button {
+      margin-top: 6px;
+    }
+
+    .swipe-badge {
+      border: 3px solid;
+      border-radius: 8px;
+      font-size: 24px;
+      font-weight: 700;
+      opacity: 0;
+      padding: 8px 12px;
+      position: absolute;
+      top: 24px;
+      transition: opacity 120ms ease;
+      z-index: 4;
+    }
+
+    .swipe-badge.left {
+      color: #b91c1c;
+      left: 22px;
+      transform: rotate(-12deg);
+    }
+
+    .swipe-badge.right {
+      color: #166534;
+      right: 22px;
+      transform: rotate(12deg);
+    }
+
+    .swipe-card.show-left .swipe-badge.left,
+    .swipe-card.show-right .swipe-badge.right {
+      opacity: 1;
+    }
+
+    .deck-empty {
+      align-items: center;
+      background: #ffffff;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      display: none;
+      height: 100%;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .deck-empty.visible {
+      display: flex;
+    }
+
+    .study-actions {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(130px, 1fr));
+      width: min(420px, 100%);
+    }
+
+    .button-danger {
+      background: #dc2626;
+    }
+
+    .button-danger:hover {
+      background: #b91c1c;
+    }
+
+    .button-success {
+      background: #16a34a;
+    }
+
+    .button-success:hover {
+      background: #15803d;
+    }
+
+    .swipe-hint {
+      color: var(--muted);
+      margin: 0;
+      text-align: center;
+      width: min(420px, 100%);
+    }
+
+    @media (max-width: 640px) {
+      .deck {
+        height: min(64vh, 500px);
+        min-height: 330px;
+      }
+
+      .card-word {
+        font-size: 34px;
+      }
+
+      .card-translation {
+        font-size: 25px;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <section class="section-title">
+    <div>
+      <h1>{{ card_set.topic }}</h1>
+      <p class="muted">Свайп вправо отмечает карточку изученной, свайп влево - не изученной.</p>
+    </div>
+    <a class="button button-secondary" href="{{ url_for('dashboard') }}">Назад в кабинет</a>
+  </section>
+
+  {% if cards %}
+    <section class="study-shell" data-cards='{{ card_payload | tojson }}'>
+      <div class="study-header">
+        <div class="study-meta">
+          <span class="status status-open" id="progressText">Карточка 1 из {{ cards|length }}</span>
+          <span class="muted" id="lastActionText">&nbsp;</span>
+        </div>
+      </div>
+
+      <div class="deck" id="deck" aria-live="polite">
+        <div class="deck-empty" id="deckEmpty">Все карточки из набора просмотрены.</div>
+      </div>
+
+      <div class="study-actions">
+        <button class="button-danger" type="button" id="markUnknown">Не изучена</button>
+        <button class="button-success" type="button" id="markKnown">Изучена</button>
+      </div>
+
+      <p class="swipe-hint">На компьютере также работают стрелки влево и вправо.</p>
+    </section>
+  {% else %}
+    <div class="panel">
+      <p class="muted">В этом наборе пока нет карточек.</p>
+    </div>
+  {% endif %}
+
+  <script>
+    (() => {
+      const shell = document.querySelector(".study-shell");
+      if (!shell) {
+        return;
+      }
+
+      const cards = JSON.parse(shell.dataset.cards);
+      const deck = document.getElementById("deck");
+      const deckEmpty = document.getElementById("deckEmpty");
+      const progressText = document.getElementById("progressText");
+      const lastActionText = document.getElementById("lastActionText");
+      const markUnknown = document.getElementById("markUnknown");
+      const markKnown = document.getElementById("markKnown");
+
+      let currentIndex = 0;
+      let activeCard = null;
+      let nextCard = null;
+      let isDragging = false;
+      let startX = 0;
+      let startY = 0;
+      let deltaX = 0;
+      let deltaY = 0;
+      let moved = false;
+
+      function cardTemplate(card, className) {
+        const article = document.createElement("article");
+        article.className = `swipe-card ${className || ""}`.trim();
+        article.dataset.cardId = card.id;
+        article.innerHTML = `
+          <span class="swipe-badge left">НЕ ИЗУЧЕНА</span>
+          <span class="swipe-badge right">ИЗУЧЕНА</span>
+          <div class="flip-inner">
+            <div class="card-face card-front">
+              <div class="card-word"></div>
+              <button class="button-secondary example-button" type="button" aria-expanded="false">Посмотреть пример использования</button>
+              <div class="example-slot">
+                <p class="card-example" hidden></p>
+              </div>
+            </div>
+            <div class="card-face card-back">
+              <div class="card-translation"></div>
+            </div>
+          </div>
+        `;
+        article.querySelector(".card-word").textContent = card.word;
+        article.querySelector(".card-translation").textContent = card.translation;
+        article.querySelector(".card-example").textContent = card.example;
+        const exampleButton = article.querySelector(".example-button");
+        const exampleText = article.querySelector(".card-example");
+        exampleButton.addEventListener("pointerdown", (event) => {
+          event.stopPropagation();
+        });
+        exampleButton.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const isHidden = exampleText.hidden;
+          exampleText.hidden = !isHidden;
+          exampleButton.textContent = isHidden ? "Скрыть пример использования" : "Посмотреть пример использования";
+          exampleButton.setAttribute("aria-expanded", String(isHidden));
+        });
+        return article;
+      }
+
+      function renderDeck() {
+        deck.querySelectorAll(".swipe-card").forEach((node) => node.remove());
+        activeCard = null;
+        nextCard = null;
+
+        if (currentIndex >= cards.length) {
+          deckEmpty.classList.add("visible");
+          progressText.textContent = `Готово: ${cards.length} из ${cards.length}`;
+          lastActionText.textContent = "Набор просмотрен";
+          markUnknown.disabled = true;
+          markKnown.disabled = true;
+          return;
+        }
+
+        deckEmpty.classList.remove("visible");
+        markUnknown.disabled = false;
+        markKnown.disabled = false;
+        progressText.textContent = `Карточка ${currentIndex + 1} из ${cards.length}`;
+
+        if (cards[currentIndex + 1]) {
+          nextCard = cardTemplate(cards[currentIndex + 1], "next");
+          deck.appendChild(nextCard);
+        }
+
+        activeCard = cardTemplate(cards[currentIndex], "");
+        bindCard(activeCard);
+        deck.appendChild(activeCard);
+      }
+
+      function bindCard(cardNode) {
+        cardNode.addEventListener("pointerdown", startDrag);
+        cardNode.addEventListener("click", (event) => {
+          if (event.target.closest("button")) {
+            return;
+          }
+          if (!moved) {
+            cardNode.classList.toggle("flipped");
+          }
+        });
+      }
+
+      function startDrag(event) {
+        if (event.target.closest("button")) {
+          return;
+        }
+
+        if (!activeCard) {
+          return;
+        }
+
+        isDragging = true;
+        moved = false;
+        startX = event.clientX;
+        startY = event.clientY;
+        deltaX = 0;
+        deltaY = 0;
+        activeCard.setPointerCapture(event.pointerId);
+        activeCard.style.transition = "none";
+        activeCard.addEventListener("pointermove", drag);
+        activeCard.addEventListener("pointerup", endDrag, { once: true });
+        activeCard.addEventListener("pointercancel", endDrag, { once: true });
+      }
+
+      function drag(event) {
+        if (!isDragging || !activeCard) {
+          return;
+        }
+
+        deltaX = event.clientX - startX;
+        deltaY = event.clientY - startY;
+        moved = Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8;
+        const rotation = deltaX / 18;
+        activeCard.style.transform = `translate(${deltaX}px, ${deltaY}px) rotate(${rotation}deg)`;
+        activeCard.classList.toggle("show-right", deltaX > 55);
+        activeCard.classList.toggle("show-left", deltaX < -55);
+      }
+
+      function endDrag() {
+        if (!activeCard) {
+          return;
+        }
+
+        isDragging = false;
+        activeCard.removeEventListener("pointermove", drag);
+        activeCard.style.transition = "transform 220ms ease";
+
+        if (Math.abs(deltaX) > 120) {
+          submitDecision(deltaX > 0);
+          return;
+        }
+
+        activeCard.style.transform = "";
+        activeCard.classList.remove("show-left", "show-right");
+      }
+
+      function submitDecision(learned) {
+        if (!activeCard) {
+          return;
+        }
+
+        const card = cards[currentIndex];
+        const direction = learned ? 1 : -1;
+        activeCard.style.transition = "transform 260ms ease, opacity 260ms ease";
+        activeCard.style.transform = `translate(${direction * 520}px, ${Math.abs(deltaY) + 20}px) rotate(${direction * 24}deg)`;
+        activeCard.style.opacity = "0";
+        markUnknown.disabled = true;
+        markKnown.disabled = true;
+
+        fetch(card.statusUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ learned })
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("status update failed");
+            }
+            return response.json();
+          })
+          .then(() => {
+            card.learned = learned;
+            lastActionText.textContent = learned ? "Отмечено: изучена" : "Отмечено: не изучена";
+            currentIndex += 1;
+            window.setTimeout(renderDeck, 180);
+          })
+          .catch(() => {
+            lastActionText.textContent = "Не удалось сохранить статус. Попробуйте еще раз.";
+            activeCard.style.opacity = "1";
+            activeCard.style.transform = "";
+            activeCard.classList.remove("show-left", "show-right");
+            markUnknown.disabled = false;
+            markKnown.disabled = false;
+          });
+      }
+
+      markUnknown.addEventListener("click", () => submitDecision(false));
+      markKnown.addEventListener("click", () => submitDecision(true));
+
+      document.addEventListener("keydown", (event) => {
+        if (!activeCard || event.target.matches("input, textarea, button, a")) {
+          return;
+        }
+        if (event.key === "ArrowLeft") {
+          submitDecision(false);
+        }
+        if (event.key === "ArrowRight") {
+          submitDecision(true);
+        }
+      });
+
+      renderDeck();
+    })();
+  </script>
+{% endblock %}

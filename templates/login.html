@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Вход | English Cards{% endblock %}
+
+{% block content %}
+  <section class="panel auth-panel">
+    <div class="section-title">
+      <h1>Вход</h1>
+    </div>
+
+    <form method="post">
+      <div class="form-row">
+        <label for="username">Логин</label>
+        <input id="username" name="username" autocomplete="username" required>
+      </div>
+
+      <div class="form-row">
+        <label for="password">Пароль</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+
+      <button class="button-inline" type="submit">Войти</button>
+    </form>
+
+    <p class="muted">Нет аккаунта? <a href="{{ url_for('register') }}">Зарегистрируйтесь</a>.</p>
+  </section>
+{% endblock %}

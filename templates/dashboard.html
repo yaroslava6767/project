@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Личный кабинет | English Cards{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <div class="section-title">
+      <div>
+        <h1>Личный кабинет</h1>
+        <p class="muted">Пользователь: {{ user.username }}</p>
+      </div>
+    </div>
+
+    <form action="{{ url_for('create_set') }}" method="post">
+      <div class="form-row">
+        <label for="topic">Тема для генерации карточек</label>
+        <input id="topic" name="topic" maxlength="120" placeholder="Например: путешествия, работа, еда" required>
+      </div>
+      <button type="submit">Сгенерировать набор</button>
+    </form>
+  </section>
+
+  <section style="margin-top: 24px;">
+    <div class="section-title">
+      <h2>Мои наборы</h2>
+    </div>
+
+    {% if card_sets %}
+      <div class="grid">
+        {% for set in card_sets %}
+          <article class="set-card">
+            <h3>{{ set.topic }}</h3>
+            <div class="muted">
+              Изучено: {{ set.learned_cards }} из {{ set.total_cards }}
+            </div>
+            <a class="button" href="{{ url_for('view_set', set_id=set.id) }}">Открыть карточки</a>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="panel">
+        <p class="muted">Пока нет наборов. Введите тему выше и создайте первый набор карточек.</p>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}
