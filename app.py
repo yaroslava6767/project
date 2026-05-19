@@ -652,6 +652,7 @@ def register():
             else:
                 session.clear()
                 session["user_id"] = user["id"]
+                session["username"] = username
                 flash("Регистрация завершена.", "success")
                 return redirect(url_for("dashboard"))
 
@@ -674,6 +675,7 @@ def login():
         if user and check_password_hash(user["password_hash"], password):
             session.clear()
             session["user_id"] = user["id"]
+            session["username"] = user["username"]
             flash("Вы вошли в аккаунт.", "success")
             return redirect(url_for("dashboard"))
 
@@ -823,6 +825,22 @@ def view_set(set_id):
         cards=cards,
         card_payload=card_payload,
     )
+
+
+@app.route("/sets/<int:set_id>/delete", methods=("POST",))
+@login_required
+def delete_set(set_id):
+    with db_cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM card_sets WHERE id = %s AND user_id = %s RETURNING id",
+            (set_id, session["user_id"]),
+        )
+        deleted = cursor.fetchone()
+    if deleted:
+        flash("Набор удалён.", "success")
+    else:
+        flash("Набор не найден или нет доступа.", "danger")
+    return redirect(url_for("dashboard"))
 
 
 @app.route("/cards/<int:card_id>/status", methods=("POST",))

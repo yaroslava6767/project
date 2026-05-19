@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,19 +8,21 @@
   <style>
     :root {
       color-scheme: light;
-      --bg: #f5f7fb;
-      --panel: #ffffff;
+      --bg: #efd8e6;
+      --panel: #f5efef;
       --text: #20242c;
       --muted: #687385;
       --border: #dfe5ee;
-      --accent: #2563eb;
-      --accent-dark: #1d4ed8;
+      --accent: #8327c1;
+      --accent-dark: #7d15c2;
       --danger: #b91c1c;
       --success: #166534;
       --warning: #92400e;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -28,8 +31,14 @@
       color: var(--text);
     }
 
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
 
     .topbar {
       background: var(--panel);
@@ -63,7 +72,9 @@
       color: var(--muted);
     }
 
-    .container { padding: 32px 0; }
+    .container {
+      padding: 32px 0;
+    }
 
     .panel {
       background: var(--panel);
@@ -133,8 +144,13 @@
       color: var(--text);
     }
 
-    .button-secondary:hover { background: #dbe5f4; }
-    .button-inline { width: 100%; }
+    .button-secondary:hover {
+      background: #dbe5f4;
+    }
+
+    .button-inline {
+      width: 100%;
+    }
 
     .flash {
       border-radius: 6px;
@@ -142,10 +158,25 @@
       padding: 12px 14px;
     }
 
-    .flash-success { background: #dcfce7; color: var(--success); }
-    .flash-danger { background: #fee2e2; color: var(--danger); }
-    .flash-warning { background: #fef3c7; color: var(--warning); }
-    .flash-info { background: #dbeafe; color: #1e40af; }
+    .flash-success {
+      background: #dcfce7;
+      color: var(--success);
+    }
+
+    .flash-danger {
+      background: #fee2e2;
+      color: var(--danger);
+    }
+
+    .flash-warning {
+      background: #fef3c7;
+      color: var(--warning);
+    }
+
+    .flash-info {
+      background: #dbeafe;
+      color: #1e40af;
+    }
 
     .section-title {
       display: flex;
@@ -157,9 +188,15 @@
 
     .section-title h1,
     .section-title h2,
-    h1, h2, h3 { margin: 0; }
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+    }
 
-    .muted { color: var(--muted); }
+    .muted {
+      color: var(--muted);
+    }
 
     .set-card,
     .word-card {
@@ -169,8 +206,15 @@
       padding: 18px;
     }
 
-    .set-card { display: grid; gap: 10px; }
-    .word-card { display: grid; gap: 12px; }
+    .set-card {
+      display: grid;
+      gap: 10px;
+    }
+
+    .word-card {
+      display: grid;
+      gap: 12px;
+    }
 
     .word-row {
       display: flex;
@@ -193,11 +237,22 @@
       white-space: nowrap;
     }
 
-    .status-learned { background: #dcfce7; color: var(--success); }
-    .status-open { background: #eef2ff; color: #3730a3; }
-    .logout-form { margin: 0; }
+    .status-learned {
+      background: #dcfce7;
+      color: var(--success);
+    }
+
+    .status-open {
+      background: #eef2ff;
+      color: #3730a3;
+    }
+
+    .logout-form {
+      margin: 0;
+    }
 
     @media (max-width: 640px) {
+
       .topbar-inner,
       .section-title,
       .word-row {
@@ -205,40 +260,37 @@
         flex-direction: column;
       }
 
-      .nav { flex-wrap: wrap; }
+      .nav {
+        flex-wrap: wrap;
+      }
     }
   </style>
   {% block extra_head %}{% endblock %}
 </head>
+
 <body>
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="{{ url_for('index') }}">English Cards</a>
       <nav class="nav">
         {% if session.get("user_id") %}
-          <a href="{{ url_for('dashboard') }}">Личный кабинет</a>
-          <form class="logout-form" action="{{ url_for('logout') }}" method="post">
-            <button class="button-secondary" type="submit">Выйти</button>
-          </form>
+        <a href="{{ url_for('dashboard') }}">Личный кабинет{% if session.username %} ({{ session.username }}){% endif
+          %}</a>
+        <form class="logout-form" action="{{ url_for('logout') }}" method="post">
+          <button class="button-secondary" type="submit">Выйти</button>
+        </form>
         {% else %}
-          <a href="{{ url_for('login') }}">Войти</a>
-          <a href="{{ url_for('register') }}">Регистрация</a>
+        <a href="{{ url_for('login') }}">Войти</a>
+        <a href="{{ url_for('register') }}">Регистрация</a>
         {% endif %}
       </nav>
     </div>
   </header>
 
   <main class="container">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash flash-{{ category }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
     {% block content %}{% endblock %}
   </main>
   {% block scripts %}{% endblock %}
 </body>
+
 </html>
