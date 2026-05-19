@@ -224,6 +224,10 @@
     width: min(420px, 100%);
   }
 
+  .study-actions[hidden] {
+    display: none;
+  }
+
   .button-danger {
     background: #dc2626;
   }
@@ -309,6 +313,7 @@
     const deckEmpty = document.getElementById("deckEmpty");
     const progressText = document.getElementById("progressText");
     const lastActionText = document.getElementById("lastActionText");
+    const studyActions = document.querySelector(".study-actions");
     const markUnknown = document.getElementById("markUnknown");
     const markKnown = document.getElementById("markKnown");
 
@@ -372,6 +377,7 @@
 
       if (currentIndex >= cards.length) {
         deckEmpty.classList.add("visible");
+        studyActions.hidden = true;
         progressText.textContent = `Готово: ${cards.length} из ${cards.length}`;
         // lastActionText.textContent = "Набор просмотрен";
         markUnknown.disabled = true;
@@ -380,6 +386,7 @@
       }
 
       deckEmpty.classList.remove("visible");
+      studyActions.hidden = false;
       markUnknown.disabled = false;
       markKnown.disabled = false;
       progressText.textContent = `Карточка ${currentIndex + 1} из ${cards.length}`;

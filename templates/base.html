@@ -156,6 +156,11 @@
       border-radius: 6px;
       margin-bottom: 16px;
       padding: 12px 14px;
+      transition: opacity 180ms ease;
+    }
+
+    .flash.is-hiding {
+      opacity: 0;
     }
 
     .flash-success {
@@ -288,8 +293,24 @@
   </header>
 
   <main class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     {% block content %}{% endblock %}
   </main>
+  <script>
+    window.setTimeout(() => {
+      document.querySelectorAll(".flash").forEach((message) => {
+        message.classList.add("is-hiding");
+        window.setTimeout(() => message.remove(), 200);
+      });
+    }, 3000);
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 

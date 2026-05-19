@@ -210,7 +210,6 @@ def login_required(view):
     @wraps(view)
     def wrapped_view(**kwargs):
         if "user_id" not in session:
-            flash("Сначала войдите в аккаунт.", "warning")
             return redirect(url_for("login"))
         return view(**kwargs)
 
@@ -230,37 +229,113 @@ def current_user():
         return cursor.fetchone()
 
 
-def build_cards_prompt(topic, english_level):
-    return f"""
-Ты генерируешь карточки для изучения английского языка.
 
-Тема: "{topic}"
-Уровень английского языка пользователя: {english_level}
+def sign_in(user):
+    session.clear()
+    session["user_id"] = user["id"]
+    session["username"] = user["username"]
 
-Сгенерируй 15 устойчивых выражений, которые должны состоять из глагола и существительного или существительного и прилагательного на английском языке, которые реально понадобятся в диалоге на заданную тему
 
-Ответ верни строго в JSON-формате без Markdown, без пояснений и без дополнительного текста.
+def dashboard_error(_message):
+    return redirect(url_for("dashboard"))
 
-Формат ответа:
-[
-  {{
-    "word": "english word or phrase",
-    "translation": "перевод на русский",
-    "example": "example sentence in English"
-  }}
-]
 
-Требования:
-- word должен быть на английском языке.
-- translation должен быть на русском языке.
-- example должен быть на английском языке.
-- example должен показывать естественное использование слова или выражения.
-- Не добавляй нумерацию.
-- Не добавляй поля кроме word, translation, example.
-- Не повторяй слова.
-- Слова должны соответствовать теме.
-- Уровень сложности слов и примеров должен соответствовать уровню {english_level}.
-""".strip()
+def requested_set_options():
+    try:
+        cards_count = int(request.form.get("cards_count", "10"))
+    except ValueError:
+        cards_count = 10
+
+    return {
+        "topic": request.form.get("topic", "").strip(),
+        "english_level": request.form.get("english_level", "A2").strip().upper(),
+        "cards_count": cards_count,
+    }
+
+
+def validate_set_options(options):
+    topic = options["topic"]
+    english_level = options["english_level"]
+    cards_count = options["cards_count"]
+
+    if not topic:
+        return "Введите тему для генерации карточек."
+    if len(topic) > 120:
+        return "Тема должна быть не длиннее 120 символов."
+    if english_level not in ENGLISH_LEVELS:
+        return "Выберите корректный уровень английского языка."
+    if cards_count not in CARD_COUNT_OPTIONS:
+        return "Выберите корректное количество слов."
+    return None
+
+
+def load_user_set_with_cards(set_id, include_created_at=True):
+    columns = "id, topic, created_at" if include_created_at else "id, topic"
+    with db_cursor() as cursor:
+        cursor.execute(
+            f"SELECT {columns} FROM card_sets WHERE id = %s AND user_id = %s",
+            (set_id, session["user_id"]),
+        )
+        card_set = cursor.fetchone()
+        if not card_set:
+            return None, []
+
+        cursor.execute(
+            "SELECT id, word, translation, example, learned FROM cards WHERE set_id = %s ORDER BY id",
+            (set_id,),
+        )
+        return card_set, cursor.fetchall()
+
+
+def save_card_set(user_id, topic, cards):
+    with db_cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO card_sets (user_id, topic) VALUES (%s, %s) RETURNING id",
+            (user_id, topic),
+        )
+        card_set = cursor.fetchone()
+
+        for card in cards:
+            cursor.execute(
+                "INSERT INTO cards (set_id, word, translation, example) VALUES (%s, %s, %s, %s)",
+                (card_set["id"], card["word"], card["translation"], card["example"]),
+            )
+
+    return card_set
+
+
+def build_card_payload(cards):
+    return [
+        {
+            "id": card["id"],
+            "word": card["word"],
+            "translation": card["translation"],
+            "example": card["example"],
+            "learned": card["learned"],
+            "statusUrl": url_for("set_card_status", card_id=card["id"]),
+        }
+        for card in cards
+    ]
+
+
+def find_user_card(cursor, card_id):
+    cursor.execute(
+        """
+        SELECT c.id, c.learned, c.set_id
+        FROM cards c
+        JOIN card_sets cs ON cs.id = c.set_id
+        WHERE c.id = %s AND cs.user_id = %s
+        """,
+        (card_id, session["user_id"]),
+    )
+    return cursor.fetchone()
+
+
+def request_bool(name):
+    value = request.form.get(name)
+    if request.is_json:
+        value = (request.get_json(silent=True) or {}).get(name, value)
+    return str(value).lower() in {"1", "true", "yes", "on"}
 
 
 def log_ai_interaction(
@@ -299,58 +374,6 @@ def log_ai_interaction(
                 error_message,
             ),
         )
-
-
-def extract_json_array(text):
-    clean_text = text.strip()
-    if clean_text.startswith("```"):
-        clean_text = clean_text.strip("`").strip()
-        if clean_text.lower().startswith("json"):
-            clean_text = clean_text[4:].strip()
-
-    start = clean_text.find("[")
-    end = clean_text.rfind("]")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("ИИ вернул ответ без JSON-массива.")
-
-    return clean_text[start : end + 1]
-
-
-def parse_ai_cards(response_text):
-    data = json.loads(extract_json_array(response_text))
-    if not isinstance(data, list) or not data:
-        raise ValueError("ИИ вернул пустой список карточек.")
-
-    cards = []
-    seen_words = set()
-    for item in data:
-        if not isinstance(item, dict):
-            raise ValueError("Каждая карточка должна быть объектом.")
-
-        word = str(item.get("word", "")).strip()
-        translation = str(item.get("translation", "")).strip()
-        example = str(item.get("example", "")).strip()
-
-        if not word or not translation or not example:
-            raise ValueError("В карточке должны быть word, translation и example.")
-
-        word_key = word.lower()
-        if word_key in seen_words:
-            continue
-
-        seen_words.add(word_key)
-        cards.append(
-            {
-                "word": word[:120],
-                "translation": translation[:120],
-                "example": example,
-            }
-        )
-
-    if not cards:
-        raise ValueError("ИИ не вернул подходящих карточек.")
-
-    return cards
 
 
 def extract_json_value(text):
@@ -493,40 +516,6 @@ def build_cards_prompt(topic, english_level, cards_count):
 
 Тема: "{topic}"
 Уровень английского языка пользователя: {english_level}
-
-Сгенерируй ровно {cards_count} устойчивых выражений, которые должны состоять из глагола и существительного или существительного и прилагательного на английском языке, которые реально понадобятся в диалоге на заданную тему.
-
-Ответ верни строго в JSON-формате без Markdown, без пояснений и без дополнительного текста.
-
-Формат ответа:
-[
-  {{
-    "word": "english word or phrase",
-    "translation": "перевод на русский",
-    "example": "example sentence in English"
-  }}
-]
-
-Требования:
-- word должен быть на английском языке.
-- translation должен быть на русском языке.
-- example должен быть на английском языке.
-- example должен показывать естественное использование слова или выражения.
-- Не добавляй нумерацию.
-- Не добавляй поля кроме word, translation, example.
-- Не повторяй слова.
-- Количество объектов в JSON-массиве должно быть ровно {cards_count}.
-- Слова должны соответствовать теме.
-- Уровень сложности слов и примеров должен соответствовать уровню {english_level}.
-""".strip()
-
-
-def build_cards_prompt(topic, english_level, cards_count):
-    return f"""
-Ты генерируешь карточки для изучения английского языка.
-
-Тема: "{topic}"
-Уровень английского языка пользователя: {english_level}
 Количество карточек: {cards_count}
 
 Сгенерируй ровно {cards_count} устойчивых выражений, которые должны состоять из глагола и существительного или существительного и прилагательного на английском языке, которые реально понадобятся в диалоге на заданную тему.
@@ -631,33 +620,25 @@ def register():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
-        if len(username) < 3:
-            flash("Логин должен быть не короче 3 символов.", "danger")
-        elif len(password) < 6:
-            flash("Пароль должен быть не короче 6 символов.", "danger")
-        else:
+        if len(username) >= 3 and len(password) >= 6:
             try:
                 with db_cursor() as cursor:
                     cursor.execute(
                         """
                         INSERT INTO users (username, password_hash)
                         VALUES (%s, %s)
-                        RETURNING id
+                        RETURNING id, username
                         """,
                         (username, generate_password_hash(password)),
                     )
                     user = cursor.fetchone()
             except pg8000.dbapi.IntegrityError:
-                flash("Пользователь с таким логином уже существует.", "danger")
+                pass
             else:
-                session.clear()
-                session["user_id"] = user["id"]
-                session["username"] = username
-                flash("Регистрация завершена.", "success")
+                sign_in(user)
                 return redirect(url_for("dashboard"))
 
     return render_template("register.html")
-
 
 @app.route("/login", methods=("GET", "POST"))
 def login():
@@ -673,21 +654,16 @@ def login():
             user = cursor.fetchone()
 
         if user and check_password_hash(user["password_hash"], password):
-            session.clear()
-            session["user_id"] = user["id"]
-            session["username"] = user["username"]
-            flash("Вы вошли в аккаунт.", "success")
+            sign_in(user)
             return redirect(url_for("dashboard"))
 
         flash("Неверный логин или пароль.", "danger")
 
     return render_template("login.html")
 
-
 @app.route("/logout", methods=("POST",))
 def logout():
     session.clear()
-    flash("Вы вышли из аккаунта.", "info")
     return redirect(url_for("login"))
 
 
@@ -720,112 +696,34 @@ def dashboard():
 @app.route("/sets/create", methods=("POST",))
 @login_required
 def create_set():
-    topic = request.form.get("topic", "").strip()
-    english_level = request.form.get("english_level", "A2").strip().upper()
-    try:
-        cards_count = int(request.form.get("cards_count", "10"))
-    except ValueError:
-        cards_count = 10
-    if not topic:
-        flash("Введите тему для генерации карточек.", "danger")
-        return redirect(url_for("dashboard"))
-
-    if len(topic) > 120:
-        flash("Тема должна быть не длиннее 120 символов.", "danger")
-        return redirect(url_for("dashboard"))
-
-    if english_level not in ENGLISH_LEVELS:
-        flash("Выберите корректный уровень английского языка.", "danger")
-        return redirect(url_for("dashboard"))
-
-    if cards_count not in CARD_COUNT_OPTIONS:
-        flash("Выберите корректное количество слов.", "danger")
-        return redirect(url_for("dashboard"))
+    options = requested_set_options()
+    error = validate_set_options(options)
+    if error:
+        return dashboard_error(error)
 
     try:
-        cards = generate_cards_with_deepseek(
-            session["user_id"],
-            topic,
-            english_level,
-            cards_count,
-        )
+        cards = generate_cards_with_deepseek(session["user_id"], **options)
     except Exception as exc:
-        flash(f"Не удалось сгенерировать карточки через DeepSeek: {exc}", "danger")
-        return redirect(url_for("dashboard"))
-
-    with db_cursor() as cursor:
-        cursor.execute(
-            "INSERT INTO card_sets (user_id, topic) VALUES (%s, %s) RETURNING id",
-            (session["user_id"], topic),
+        return dashboard_error(
+            f"Не удалось сгенерировать карточки через DeepSeek: {exc}"
         )
-        card_set = cursor.fetchone()
 
-        for card in cards:
-            cursor.execute(
-                """
-                INSERT INTO cards (set_id, word, translation, example)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (
-                    card_set["id"],
-                    card["word"],
-                    card["translation"],
-                    card["example"],
-                ),
-            )
-
-    flash("Набор карточек создан.", "success")
+    card_set = save_card_set(session["user_id"], options["topic"], cards)
     return redirect(url_for("view_set", set_id=card_set["id"]))
-
 
 @app.route("/sets/<int:set_id>")
 @login_required
 def view_set(set_id):
-    with db_cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT id, topic, created_at
-            FROM card_sets
-            WHERE id = %s AND user_id = %s
-            """,
-            (set_id, session["user_id"]),
-        )
-        card_set = cursor.fetchone()
-
-        if not card_set:
-            flash("Набор карточек не найден.", "danger")
-            return redirect(url_for("dashboard"))
-
-        cursor.execute(
-            """
-            SELECT id, word, translation, example, learned
-            FROM cards
-            WHERE set_id = %s
-            ORDER BY id
-            """,
-            (set_id,),
-        )
-        cards = cursor.fetchall()
-
-    card_payload = [
-        {
-            "id": card["id"],
-            "word": card["word"],
-            "translation": card["translation"],
-            "example": card["example"],
-            "learned": card["learned"],
-            "statusUrl": url_for("set_card_status", card_id=card["id"]),
-        }
-        for card in cards
-    ]
+    card_set, cards = load_user_set_with_cards(set_id)
+    if not card_set:
+        return dashboard_error("Набор карточек не найден.")
 
     return render_template(
         "set.html",
         card_set=card_set,
         cards=cards,
-        card_payload=card_payload,
+        card_payload=build_card_payload(cards),
     )
-
 
 @app.route("/sets/<int:set_id>/delete", methods=("POST",))
 @login_required
@@ -835,102 +733,49 @@ def delete_set(set_id):
             "DELETE FROM card_sets WHERE id = %s AND user_id = %s RETURNING id",
             (set_id, session["user_id"]),
         )
-        deleted = cursor.fetchone()
-    if deleted:
-        flash("Набор удалён.", "success")
-    else:
-        flash("Набор не найден или нет доступа.", "danger")
+        cursor.fetchone()
     return redirect(url_for("dashboard"))
 
 
 @app.route("/sets/<int:set_id>/words")
 @login_required
 def view_words(set_id):
-    with db_cursor() as cursor:
-        cursor.execute(
-            "SELECT id, topic FROM card_sets WHERE id = %s AND user_id = %s",
-            (set_id, session["user_id"]),
-        )
-        card_set = cursor.fetchone()
-
-        if not card_set:
-            flash("Набор не найден.", "danger")
-            return redirect(url_for("dashboard"))
-
-        cursor.execute(
-            "SELECT id, word, translation, example, learned FROM cards WHERE set_id = %s ORDER BY id",
-            (set_id,),
-        )
-        cards = cursor.fetchall()
+    card_set, cards = load_user_set_with_cards(set_id, include_created_at=False)
+    if not card_set:
+        return dashboard_error("Набор не найден.")
 
     return render_template("words.html", card_set=card_set, cards=cards)
-
 
 @app.route("/cards/<int:card_id>/status", methods=("POST",))
 @login_required
 def set_card_status(card_id):
-    raw_learned = request.form.get("learned")
-    if request.is_json:
-        json_data = request.get_json(silent=True) or {}
-        raw_learned = json_data.get("learned", raw_learned)
-
-    learned = str(raw_learned).lower() in {"1", "true", "yes", "on"}
+    learned = request_bool("learned")
 
     with db_cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT c.id, c.set_id
-            FROM cards c
-            JOIN card_sets cs ON cs.id = c.set_id
-            WHERE c.id = %s AND cs.user_id = %s
-            """,
-            (card_id, session["user_id"]),
-        )
-        card = cursor.fetchone()
-
+        card = find_user_card(cursor, card_id)
         if not card:
             if request.is_json:
                 return jsonify({"ok": False, "error": "card_not_found"}), 404
-            flash("Карточка не найдена.", "danger")
-            return redirect(url_for("dashboard"))
+            return dashboard_error("Карточка не найдена.")
 
-        cursor.execute(
-            "UPDATE cards SET learned = %s WHERE id = %s",
-            (learned, card_id),
-        )
+        cursor.execute("UPDATE cards SET learned = %s WHERE id = %s", (learned, card_id))
 
     if request.is_json:
         return jsonify({"ok": True, "learned": learned})
 
     return redirect(url_for("view_set", set_id=card["set_id"]))
 
-
 @app.route("/cards/<int:card_id>/toggle", methods=("POST",))
 @login_required
 def toggle_card(card_id):
     with db_cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT c.id, c.learned, c.set_id
-            FROM cards c
-            JOIN card_sets cs ON cs.id = c.set_id
-            WHERE c.id = %s AND cs.user_id = %s
-            """,
-            (card_id, session["user_id"]),
-        )
-        card = cursor.fetchone()
-
+        card = find_user_card(cursor, card_id)
         if not card:
-            flash("Карточка не найдена.", "danger")
-            return redirect(url_for("dashboard"))
+            return dashboard_error("Карточка не найдена.")
 
-        cursor.execute(
-            "UPDATE cards SET learned = %s WHERE id = %s",
-            (not card["learned"], card_id),
-        )
+        cursor.execute("UPDATE cards SET learned = %s WHERE id = %s", (not card["learned"], card_id))
 
     return redirect(url_for("view_set", set_id=card["set_id"]))
-
 
 if __name__ == "__main__":
     init_db()
