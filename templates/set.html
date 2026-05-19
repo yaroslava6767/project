@@ -122,6 +122,42 @@
     display: none;
   }
 
+  .card-info-icon {
+    align-items: center;
+    background: none;
+    bottom: 30px;
+    color: var(--accent);
+    display: none;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 4px;
+    justify-content: center;
+    left: 30px;
+    position: absolute;
+    text-decoration: none;
+    z-index: 5;
+  }
+
+  .swipe-card.flipped .card-info-icon {
+    display: flex;
+  }
+
+  .card-info-icon .info-badge {
+    align-items: center;
+    background: var(--accent);
+    border-radius: 50%;
+    color: #fff;
+    display: inline-flex;
+    font-size: 13px;
+    height: 22px;
+    justify-content: center;
+    width: 22px;
+  }
+
+  .card-info-icon:hover .info-badge {
+    background: var(--accent-dark);
+  }
+
   .example-slot {
     align-items: flex-start;
     display: flex;
@@ -305,10 +341,15 @@
               <div class="card-translation"></div>
             </div>
           </div>
+          <a class="card-info-icon" href="#" target="_blank" rel="noopener" title="Открыть в Reverso Context"><span class="info-badge">i</span>Уточнить в Reverso Context</a>
         `;
       article.querySelector(".card-word").textContent = card.word;
       article.querySelector(".card-translation").textContent = card.translation;
       article.querySelector(".card-example").textContent = card.example;
+      const infoLink = article.querySelector(".card-info-icon");
+      infoLink.href = "https://context.reverso.net/translation/english-russian/" + encodeURIComponent(card.word);
+      infoLink.addEventListener("pointerdown", (event) => event.stopPropagation());
+      infoLink.addEventListener("click", (event) => event.stopPropagation());
       const exampleButton = article.querySelector(".example-button");
       const exampleText = article.querySelector(".card-example");
       exampleButton.addEventListener("pointerdown", (event) => {
