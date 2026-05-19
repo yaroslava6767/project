@@ -1,17 +1,16 @@
-# English Cards
+## Что нужно
 
-Простой веб-сервис на Flask + Postgres для регистрации пользователей и хранения личных наборов карточек для изучения английского языка.
+- Python 3.10+
+- PostgreSQL
+- API-ключ DeepSeek
 
-Для подключения к Postgres используется `pg8000`, поэтому на Windows не нужен компилятор C для сборки `psycopg2`.
+## Настройка
 
-## Запуск
+1. Создайте и активируйте виртуальное окружение:
 
-1. Убедитесь, что Postgres запущен.
-
-Приложение попробует автоматически создать базу `english_cards`. Если у пользователя Postgres нет прав на создание базы, создайте её вручную:
-
-```sql
-CREATE DATABASE english_cards;
+```bash
+python -m venv .venv
+.venv\Scripts\activate
 ```
 
 2. Установите зависимости:
@@ -20,9 +19,15 @@ CREATE DATABASE english_cards;
 pip install -r requirements.txt
 ```
 
-3. Задайте переменные окружения при необходимости:
+3. Скопируйте пример настроек:
 
 ```bash
+copy .env.example .env
+```
+
+4. Заполните `.env`:
+
+```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/english_cards
 SECRET_KEY=replace-with-a-random-secret
 DEEPSEEK_API_KEY=replace-with-your-deepseek-api-key
@@ -30,12 +35,26 @@ DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
 DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
-4. Запустите приложение:
+## База данных
+
+Убедитесь, что PostgreSQL запущен. Приложение попробует создать базу `english_cards` автоматически.
+
+Если у пользователя PostgreSQL нет прав на создание базы, создайте ее вручную:
+
+```sql
+CREATE DATABASE english_cards;
+```
+
+Таблицы создаются автоматически при запуске приложения или при первом запросе.
+
+## Запуск
 
 ```bash
 python app.py
 ```
 
-База и таблицы создаются автоматически при старте приложения или при первом запросе, если у пользователя Postgres есть нужные права.
+Откройте в браузере:
 
-Запросы к DeepSeek и ответы модели сохраняются в таблицу `ai_log` вместе с пользователем и временем запроса.
+```text
+http://127.0.0.1:5000
+```
