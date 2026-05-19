@@ -19,9 +19,7 @@
       --warning: #92400e;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -30,14 +28,8 @@
       color: var(--text);
     }
 
-    a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
 
     .topbar {
       background: var(--panel);
@@ -71,9 +63,7 @@
       color: var(--muted);
     }
 
-    .container {
-      padding: 32px 0;
-    }
+    .container { padding: 32px 0; }
 
     .panel {
       background: var(--panel);
@@ -143,13 +133,8 @@
       color: var(--text);
     }
 
-    .button-secondary:hover {
-      background: #dbe5f4;
-    }
-
-    .button-inline {
-      width: 100%;
-    }
+    .button-secondary:hover { background: #dbe5f4; }
+    .button-inline { width: 100%; }
 
     .flash {
       border-radius: 6px;
@@ -157,25 +142,10 @@
       padding: 12px 14px;
     }
 
-    .flash-success {
-      background: #dcfce7;
-      color: var(--success);
-    }
-
-    .flash-danger {
-      background: #fee2e2;
-      color: var(--danger);
-    }
-
-    .flash-warning {
-      background: #fef3c7;
-      color: var(--warning);
-    }
-
-    .flash-info {
-      background: #dbeafe;
-      color: #1e40af;
-    }
+    .flash-success { background: #dcfce7; color: var(--success); }
+    .flash-danger { background: #fee2e2; color: var(--danger); }
+    .flash-warning { background: #fef3c7; color: var(--warning); }
+    .flash-info { background: #dbeafe; color: #1e40af; }
 
     .section-title {
       display: flex;
@@ -187,15 +157,9 @@
 
     .section-title h1,
     .section-title h2,
-    h1,
-    h2,
-    h3 {
-      margin: 0;
-    }
+    h1, h2, h3 { margin: 0; }
 
-    .muted {
-      color: var(--muted);
-    }
+    .muted { color: var(--muted); }
 
     .set-card,
     .word-card {
@@ -205,15 +169,8 @@
       padding: 18px;
     }
 
-    .set-card {
-      display: grid;
-      gap: 10px;
-    }
-
-    .word-card {
-      display: grid;
-      gap: 12px;
-    }
+    .set-card { display: grid; gap: 10px; }
+    .word-card { display: grid; gap: 12px; }
 
     .word-row {
       display: flex;
@@ -236,19 +193,9 @@
       white-space: nowrap;
     }
 
-    .status-learned {
-      background: #dcfce7;
-      color: var(--success);
-    }
-
-    .status-open {
-      background: #eef2ff;
-      color: #3730a3;
-    }
-
-    .logout-form {
-      margin: 0;
-    }
+    .status-learned { background: #dcfce7; color: var(--success); }
+    .status-open { background: #eef2ff; color: #3730a3; }
+    .logout-form { margin: 0; }
 
     @media (max-width: 640px) {
       .topbar-inner,
@@ -258,9 +205,7 @@
         flex-direction: column;
       }
 
-      .nav {
-        flex-wrap: wrap;
-      }
+      .nav { flex-wrap: wrap; }
     }
   </style>
   {% block extra_head %}{% endblock %}
@@ -294,5 +239,6 @@
 
     {% block content %}{% endblock %}
   </main>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

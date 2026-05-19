@@ -33,6 +33,8 @@ DEEPSEEK_API_URL = os.environ.get(
     "https://api.deepseek.com/chat/completions",
 )
 DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
+ENGLISH_LEVELS = ("A1", "A2", "B1", "B2", "C1")
+CARD_COUNT_OPTIONS = (5, 10, 15, 20, 25, 30)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change-me-in-production")
@@ -168,12 +170,20 @@ def init_db():
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 topic VARCHAR(120) NOT NULL,
+                english_level VARCHAR(2) NOT NULL DEFAULT 'A2',
+                cards_count INTEGER NOT NULL DEFAULT 10,
                 request_prompt TEXT NOT NULL,
                 response_text TEXT,
                 success BOOLEAN NOT NULL DEFAULT FALSE,
                 error_message TEXT
             );
             """
+        )
+        cursor.execute(
+            "ALTER TABLE ai_log ADD COLUMN IF NOT EXISTS english_level VARCHAR(2) NOT NULL DEFAULT 'A2'"
+        )
+        cursor.execute(
+            "ALTER TABLE ai_log ADD COLUMN IF NOT EXISTS cards_count INTEGER NOT NULL DEFAULT 10"
         )
 
 
@@ -219,13 +229,14 @@ def current_user():
         return cursor.fetchone()
 
 
-def build_cards_prompt(topic):
+def build_cards_prompt(topic, english_level):
     return f"""
 Ты генерируешь карточки для изучения английского языка.
 
 Тема: "{topic}"
+Уровень английского языка пользователя: {english_level}
 
-Сгенерируй 10 английских слов или коротких устойчивых выражений по этой теме.
+Сгенерируй 15 устойчивых выражений, которые должны состоять из глагола и существительного или существительного и прилагательного на английском языке, которые реально понадобятся в диалоге на заданную тему
 
 Ответ верни строго в JSON-формате без Markdown, без пояснений и без дополнительного текста.
 
@@ -247,27 +258,40 @@ def build_cards_prompt(topic):
 - Не добавляй поля кроме word, translation, example.
 - Не повторяй слова.
 - Слова должны соответствовать теме.
-- Уровень сложности: A2-B1.
+- Уровень сложности слов и примеров должен соответствовать уровню {english_level}.
 """.strip()
 
 
-def log_ai_interaction(user_id, topic, request_prompt, response_text, success, error_message=None):
+def log_ai_interaction(
+    user_id,
+    topic,
+    english_level,
+    cards_count,
+    request_prompt,
+    response_text,
+    success,
+    error_message=None,
+):
     with db_cursor() as cursor:
         cursor.execute(
             """
             INSERT INTO ai_log (
                 user_id,
                 topic,
+                english_level,
+                cards_count,
                 request_prompt,
                 response_text,
                 success,
                 error_message
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
                 topic,
+                english_level,
+                cards_count,
                 request_prompt,
                 response_text,
                 success,
@@ -328,11 +352,155 @@ def parse_ai_cards(response_text):
     return cards
 
 
-def generate_cards_with_deepseek(user_id, topic):
+def extract_json_value(text):
+    clean_text = text.strip()
+    if clean_text.startswith("```"):
+        lines = clean_text.splitlines()
+        if lines and lines[0].strip().startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        clean_text = "\n".join(lines).strip()
+
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(clean_text):
+        if char not in "[{":
+            continue
+        try:
+            value, _ = decoder.raw_decode(clean_text[index:])
+            return value
+        except json.JSONDecodeError:
+            continue
+
+    raise ValueError("ИИ вернул ответ без JSON-данных.")
+
+
+def normalize_cards_payload(data):
+    if isinstance(data, list):
+        return data
+
+    if isinstance(data, dict):
+        for key in ("cards", "words", "items", "data", "result"):
+            value = data.get(key)
+            if isinstance(value, list):
+                return value
+
+    raise ValueError("ИИ вернул JSON, но без списка карточек.")
+
+
+def parse_ai_cards(response_text):
+    data = normalize_cards_payload(extract_json_value(response_text))
+    if not data:
+        raise ValueError("ИИ вернул пустой список карточек.")
+
+    cards = []
+    seen_words = set()
+    for item in data:
+        if not isinstance(item, dict):
+            raise ValueError("Каждая карточка должна быть объектом.")
+
+        word = str(item.get("word", "")).strip()
+        translation = str(item.get("translation", "")).strip()
+        example = str(item.get("example", "")).strip()
+
+        if not word or not translation or not example:
+            raise ValueError("В карточке должны быть word, translation и example.")
+
+        word_key = word.lower()
+        if word_key in seen_words:
+            continue
+
+        seen_words.add(word_key)
+        cards.append(
+            {
+                "word": word[:120],
+                "translation": translation[:120],
+                "example": example,
+            }
+        )
+
+    if not cards:
+        raise ValueError("ИИ не вернул подходящих карточек.")
+
+    return cards
+
+
+def build_cards_prompt(topic, english_level, cards_count):
+    return f"""
+Ты генерируешь карточки для изучения английского языка.
+
+Тема: "{topic}"
+Уровень английского языка пользователя: {english_level}
+
+Сгенерируй ровно {cards_count} устойчивых выражений, которые должны состоять из глагола и существительного или существительного и прилагательного на английском языке, которые реально понадобятся в диалоге на заданную тему.
+
+Ответ верни строго в JSON-формате без Markdown, без пояснений и без дополнительного текста.
+
+Формат ответа:
+[
+  {{
+    "word": "english word or phrase",
+    "translation": "перевод на русский",
+    "example": "example sentence in English"
+  }}
+]
+
+Требования:
+- word должен быть на английском языке.
+- translation должен быть на русском языке.
+- example должен быть на английском языке.
+- example должен показывать естественное использование слова или выражения.
+- Не добавляй нумерацию.
+- Не добавляй поля кроме word, translation, example.
+- Не повторяй слова.
+- Количество объектов в JSON-массиве должно быть ровно {cards_count}.
+- Слова должны соответствовать теме.
+- Уровень сложности слов и примеров должен соответствовать уровню {english_level}.
+""".strip()
+
+
+def build_cards_prompt(topic, english_level, cards_count):
+    return f"""
+Ты генерируешь карточки для изучения английского языка.
+
+Тема: "{topic}"
+Уровень английского языка пользователя: {english_level}
+Количество карточек: {cards_count}
+
+Сгенерируй ровно {cards_count} устойчивых выражений, которые должны состоять из глагола и существительного или существительного и прилагательного на английском языке, которые реально понадобятся в диалоге на заданную тему.
+
+Ответ верни строго как JSON-объект без Markdown, без пояснений и без дополнительного текста.
+
+Формат ответа:
+{{
+  "cards": [
+    {{
+      "word": "english word or phrase",
+      "translation": "перевод на русский",
+      "example": "example sentence in English"
+    }}
+  ]
+}}
+
+Требования:
+- В массиве cards должно быть ровно {cards_count} объектов.
+- word должен быть на английском языке.
+- translation должен быть на русском языке.
+- example должен быть на английском языке.
+- example должен показывать естественное использование слова или выражения.
+- Не добавляй нумерацию.
+- Не добавляй поля кроме cards, word, translation, example.
+- Не повторяй слова.
+- Слова должны соответствовать теме.
+- Уровень сложности слов и примеров должен соответствовать уровню {english_level}.
+""".strip()
+
+
+def generate_cards_with_deepseek(user_id, topic, english_level, cards_count):
     if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY.startswith("replace-with-"):
         raise RuntimeError("Не задан DEEPSEEK_API_KEY в .env.")
 
-    prompt = build_cards_prompt(topic)
+    prompt = build_cards_prompt(topic, english_level, cards_count)
     response_text = None
 
     try:
@@ -353,6 +521,7 @@ def generate_cards_with_deepseek(user_id, topic):
                 ],
                 "temperature": 0.7,
                 "max_tokens": 2000,
+                "response_format": {"type": "json_object"},
             },
             timeout=45,
         )
@@ -365,6 +534,8 @@ def generate_cards_with_deepseek(user_id, topic):
         log_ai_interaction(
             user_id=user_id,
             topic=topic,
+            english_level=english_level,
+            cards_count=cards_count,
             request_prompt=prompt,
             response_text=response_text,
             success=False,
@@ -375,6 +546,8 @@ def generate_cards_with_deepseek(user_id, topic):
     log_ai_interaction(
         user_id=user_id,
         topic=topic,
+        english_level=english_level,
+        cards_count=cards_count,
         request_prompt=prompt,
         response_text=response_text,
         success=True,
@@ -483,6 +656,11 @@ def dashboard():
 @login_required
 def create_set():
     topic = request.form.get("topic", "").strip()
+    english_level = request.form.get("english_level", "A2").strip().upper()
+    try:
+        cards_count = int(request.form.get("cards_count", "10"))
+    except ValueError:
+        cards_count = 10
     if not topic:
         flash("Введите тему для генерации карточек.", "danger")
         return redirect(url_for("dashboard"))
@@ -491,8 +669,21 @@ def create_set():
         flash("Тема должна быть не длиннее 120 символов.", "danger")
         return redirect(url_for("dashboard"))
 
+    if english_level not in ENGLISH_LEVELS:
+        flash("Выберите корректный уровень английского языка.", "danger")
+        return redirect(url_for("dashboard"))
+
+    if cards_count not in CARD_COUNT_OPTIONS:
+        flash("Выберите корректное количество слов.", "danger")
+        return redirect(url_for("dashboard"))
+
     try:
-        cards = generate_cards_with_deepseek(session["user_id"], topic)
+        cards = generate_cards_with_deepseek(
+            session["user_id"],
+            topic,
+            english_level,
+            cards_count,
+        )
     except Exception as exc:
         flash(f"Не удалось сгенерировать карточки через DeepSeek: {exc}", "danger")
         return redirect(url_for("dashboard"))

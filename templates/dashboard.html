@@ -2,6 +2,92 @@
 
 {% block title %}Личный кабинет | English Cards{% endblock %}
 
+{% block extra_head %}
+  <style>
+    .generation-grid {
+      align-items: end;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: minmax(0, 1fr) 140px 160px;
+    }
+
+    select {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font: inherit;
+      padding: 11px 12px;
+      background: #ffffff;
+    }
+
+    .loading-modal {
+      align-items: center;
+      background: rgba(17, 24, 39, 0.58);
+      bottom: 0;
+      display: none;
+      justify-content: center;
+      left: 0;
+      padding: 24px;
+      position: fixed;
+      right: 0;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .loading-modal.visible {
+      display: flex;
+    }
+
+    .loading-dialog {
+      align-items: center;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+      display: grid;
+      gap: 14px;
+      max-width: 420px;
+      padding: 28px;
+      text-align: center;
+      width: 100%;
+    }
+
+    .loading-spinner {
+      animation: spin 0.9s linear infinite;
+      border: 4px solid #dbe5f4;
+      border-radius: 999px;
+      border-top-color: var(--accent);
+      height: 48px;
+      justify-self: center;
+      width: 48px;
+    }
+
+    .loading-dialog h2 {
+      font-size: 22px;
+      margin: 0;
+    }
+
+    .loading-dialog p {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 640px) {
+      .generation-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
   <section class="panel">
     <div class="section-title">
@@ -11,12 +97,38 @@
       </div>
     </div>
 
-    <form action="{{ url_for('create_set') }}" method="post">
-      <div class="form-row">
-        <label for="topic">Тема для генерации карточек</label>
-        <input id="topic" name="topic" maxlength="120" placeholder="Например: путешествия, работа, еда" required>
+    <form action="{{ url_for('create_set') }}" method="post" id="generateForm">
+      <div class="generation-grid">
+        <div class="form-row">
+          <label for="topic">Тема для генерации карточек</label>
+          <input id="topic" name="topic" maxlength="120" placeholder="Например: путешествия, работа, еда" required>
+        </div>
+
+        <div class="form-row">
+          <label for="english_level">Уровень</label>
+          <select id="english_level" name="english_level" required>
+            <option value="A1">A1</option>
+            <option value="A2" selected>A2</option>
+            <option value="B1">B1</option>
+            <option value="B2">B2</option>
+            <option value="C1">C1</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="cards_count">Количество слов</label>
+          <select id="cards_count" name="cards_count" required>
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="25">25</option>
+            <option value="30">30</option>
+          </select>
+        </div>
       </div>
-      <button type="submit">Сгенерировать набор</button>
+
+      <button type="submit" id="generateButton">Сгенерировать набор</button>
     </form>
   </section>
 
@@ -43,4 +155,36 @@
       </div>
     {% endif %}
   </section>
+
+  <div class="loading-modal" id="loadingModal" role="dialog" aria-modal="true" aria-labelledby="loadingTitle" aria-describedby="loadingText">
+    <div class="loading-dialog">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <h2 id="loadingTitle">Генерация набора карточек</h2>
+      <p id="loadingText">Пожалуйста, подождите. Идет запрос к ИИ и подготовка карточек.</p>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    (() => {
+      const form = document.getElementById("generateForm");
+      const modal = document.getElementById("loadingModal");
+      const button = document.getElementById("generateButton");
+
+      if (!form || !modal || !button) {
+        return;
+      }
+
+      form.addEventListener("submit", () => {
+        if (!form.checkValidity()) {
+          return;
+        }
+
+        button.disabled = true;
+        modal.classList.add("visible");
+        document.body.classList.add("modal-open");
+      });
+    })();
+  </script>
 {% endblock %}

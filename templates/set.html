@@ -46,18 +46,12 @@
       will-change: transform;
     }
 
-    .swipe-card:active {
-      cursor: grabbing;
-    }
+    .swipe-card:active { cursor: grabbing; }
 
     .swipe-card.next {
       opacity: 0.55;
       pointer-events: none;
       transform: translateY(14px) scale(0.96);
-    }
-
-    .swipe-card.hidden {
-      display: none;
     }
 
     .flip-inner {
@@ -93,13 +87,8 @@
       width: 100%;
     }
 
-    .card-front {
-      gap: 12px;
-    }
-
-    .card-back {
-      transform: rotateY(180deg);
-    }
+    .card-front { gap: 12px; }
+    .card-back { transform: rotateY(180deg); }
 
     .card-word {
       font-size: 42px;
@@ -121,9 +110,7 @@
       margin: 0;
     }
 
-    .card-example[hidden] {
-      display: none;
-    }
+    .card-example[hidden] { display: none; }
 
     .example-slot {
       align-items: flex-start;
@@ -133,9 +120,7 @@
       width: 100%;
     }
 
-    .example-button {
-      margin-top: 6px;
-    }
+    .example-button { margin-top: 6px; }
 
     .swipe-badge {
       border: 3px solid;
@@ -180,9 +165,7 @@
       text-align: center;
     }
 
-    .deck-empty.visible {
-      display: flex;
-    }
+    .deck-empty.visible { display: flex; }
 
     .study-actions {
       display: grid;
@@ -191,21 +174,10 @@
       width: min(420px, 100%);
     }
 
-    .button-danger {
-      background: #dc2626;
-    }
-
-    .button-danger:hover {
-      background: #b91c1c;
-    }
-
-    .button-success {
-      background: #16a34a;
-    }
-
-    .button-success:hover {
-      background: #15803d;
-    }
+    .button-danger { background: #dc2626; }
+    .button-danger:hover { background: #b91c1c; }
+    .button-success { background: #16a34a; }
+    .button-success:hover { background: #15803d; }
 
     .swipe-hint {
       color: var(--muted);
@@ -220,13 +192,8 @@
         min-height: 330px;
       }
 
-      .card-word {
-        font-size: 34px;
-      }
-
-      .card-translation {
-        font-size: 25px;
-      }
+      .card-word { font-size: 34px; }
+      .card-translation { font-size: 25px; }
     }
   </style>
 {% endblock %}
@@ -439,9 +406,7 @@
 
         fetch(card.statusUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ learned })
         })
           .then((response) => {
