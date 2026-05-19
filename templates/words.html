@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}{{ card_set.topic }} — слова | English Cards{% endblock %}
+
+{% block extra_head %}
+<style>
+  .words-table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .words-table th,
+  .words-table td {
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .words-table th {
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .words-table td.muted {
+    font-size: 14px;
+  }
+
+  .badge {
+    border-radius: 999px;
+    display: inline-flex;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    white-space: nowrap;
+  }
+
+  .badge-learned {
+    background: #dcfce7;
+    color: var(--success);
+  }
+
+  .badge-not-learned {
+    background: #fee2e2;
+    color: var(--danger);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="section-title">
+  <div>
+    <h1>{{ card_set.topic }}</h1>
+    <p class="muted">Список слов</p>
+  </div>
+  <a class="button button-secondary" href="{{ url_for('dashboard') }}">Назад в кабинет</a>
+</section>
+
+{% if cards %}
+<section class="panel">
+  <table class="words-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Слово</th>
+        <th>Перевод</th>
+        <th>Пример</th>
+        <th>Статус</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for card in cards %}
+      <tr>
+        <td class="muted">{{ loop.index }}</td>
+        <td><strong>{{ card.word }}</strong></td>
+        <td>{{ card.translation }}</td>
+        <td class="muted">{{ card.example }}</td>
+        <td>
+          {% if card.learned %}
+          <span class="badge badge-learned">Изучено</span>
+          {% else %}
+          <span class="badge badge-not-learned">Не изучено</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<div class="panel">
+  <p class="muted">В этом наборе пока нет слов.</p>
+</div>
+{% endif %}
+{% endblock %}

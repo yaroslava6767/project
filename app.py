@@ -843,6 +843,29 @@ def delete_set(set_id):
     return redirect(url_for("dashboard"))
 
 
+@app.route("/sets/<int:set_id>/words")
+@login_required
+def view_words(set_id):
+    with db_cursor() as cursor:
+        cursor.execute(
+            "SELECT id, topic FROM card_sets WHERE id = %s AND user_id = %s",
+            (set_id, session["user_id"]),
+        )
+        card_set = cursor.fetchone()
+
+        if not card_set:
+            flash("Набор не найден.", "danger")
+            return redirect(url_for("dashboard"))
+
+        cursor.execute(
+            "SELECT id, word, translation, example, learned FROM cards WHERE set_id = %s ORDER BY id",
+            (set_id,),
+        )
+        cards = cursor.fetchall()
+
+    return render_template("words.html", card_set=card_set, cards=cards)
+
+
 @app.route("/cards/<int:card_id>/status", methods=("POST",))
 @login_required
 def set_card_status(card_id):

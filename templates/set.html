@@ -17,9 +17,10 @@
   .study-meta {
     align-items: center;
     display: flex;
-    justify-content: space-between;
-    gap: 12px;
+    justify-content: center;
+    gap: 16px;
     margin-top: 10px;
+    font-size: 16px;
   }
 
   .deck {
@@ -331,7 +332,7 @@
       if (currentIndex >= cards.length) {
         deckEmpty.classList.add("visible");
         progressText.textContent = `Готово: ${cards.length} из ${cards.length}`;
-        lastActionText.textContent = "Набор просмотрен";
+        // lastActionText.textContent = "Набор просмотрен";
         markUnknown.disabled = true;
         markKnown.disabled = true;
         return;
@@ -444,7 +445,7 @@
         })
         .then(() => {
           card.learned = learned;
-          lastActionText.textContent = learned ? "Отмечено: изучена" : "Отмечено: не изучена";
+          // lastActionText.textContent = learned ? "Отмечено: изучена" : "Отмечено: не изучена";
           currentIndex += 1;
           window.setTimeout(renderDeck, 180);
         })

@@ -145,7 +145,7 @@
       </div>
 
       <div class="form-row">
-        <label for="english_level">Уровень</label>
+        <label for="english_level">Уровень языка</label>
         <select id="english_level" name="english_level" required>
           <option value="A1">A1</option>
           <option value="A2" selected>A2</option>
@@ -156,7 +156,7 @@
       </div>
 
       <div class="form-row">
-        <label for="cards_count">Количество слов</label>
+        <label for="cards_count">Количество карточек</label>
         <select id="cards_count" name="cards_count" required>
           <option value="5">5</option>
           <option value="10" selected>10</option>
@@ -186,7 +186,9 @@
         Изучено: {{ set.learned_cards }} из {{ set.total_cards }}
       </div>
       <a class="button" href="{{ url_for('view_set', set_id=set.id) }}">Открыть карточки</a>
-      <form method="post" action="{{ url_for('delete_set', set_id=set.id) }}" onsubmit="return confirm('Удалить набор «{{ set.topic }}»?');" style="margin:0;position:static">
+      <a class="button" href="{{ url_for('view_words', set_id=set.id) }}">Посмотреть слова</a>
+      <form method="post" action="{{ url_for('delete_set', set_id=set.id) }}"
+        onsubmit="return confirm('Удалить набор «{{ set.topic }}»?');" style="margin:0;position:static">
         <button class="delete-button" type="submit" title="Удалить">&#10005;</button>
       </form>
     </article>
